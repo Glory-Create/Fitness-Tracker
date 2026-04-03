@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fitness Tracker" />
+  <title>Fitness Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111318; color: #f0ece4; font-family: Georgia, serif; }
+    button { font-family: Georgia, serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function makeWeightSteps(name, sets, weights, tip, muscles) {
+  return weights.map((w, i) => ({
+    id: `w${w}`,
+    name: w === weights[weights.length - 1] ? `${name} — ${w} lbs ⭐` : `${name} — ${w} lbs`,
+    reps: sets,
+    tip,
+    muscles,
+    isGoal: i === weights.length - 1,
+  }));
+}
+
+const WEIGHTS_LIGHT  = [5, 8, 10, 12, 15, 20, 25, 30, 35, 40];
+const WEIGHTS_MED    = [8, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50];
+const WEIGHTS_HEAVY  = [10, 12, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
+const WEIGHTS_LEGS   = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70];
+
+// ─── CALISTHENICS GOALS ───────────────────────────────────────────────────────
+const caliGoals = [
+  {
+    id: "pushups", name: "Push Ups", emoji: "💪", target: "15 full push ups", color: "#FF6B6B",
+    exercises: [
+      { id: "wall",          name: "Wall Push Up",                  reps: "3 x 10" },
+      { id: "incline_high",  name: "High Incline Push Up",          reps: "3 x 10" },
+      { id: "incline_low",   name: "Low Incline Push Up",           reps: "3 x 10" },
+      { id: "knee",          name: "Knee Push Up",                  reps: "3 x 10" },
+      { id: "negative",      name: "Negative Push Up (slow down)",  reps: "3 x 8"  },
+      { id: "full",          name: "Full Push Up",                  reps: "3 x 5"  },
+      { id: "full10",        name: "Full Push Up",                  reps: "3 x 10" },
+      { id: "full15",        name: "Full Push Up ⭐ GOAL",          reps: "3 x 15" },
+      { id: "diamond",       name: "Diamond Push Up",               reps: "3 x 8"  },
+      { id: "archer",        name: "Archer Push Up",                reps: "3 x 6 each" },
+      { id: "pike",          name: "Pike Push Up",                  reps: "3 x 8"  },
+      { id: "pseudo",        name: "Pseudo Planche Push Up",        reps: "3 x 6"  },
+      { id: "handstand_wall",name: "Wall Handstand Hold",           reps: "3 x 20 sec" },
+      { id: "handstand_free",name: "Freestanding Handstand",        reps: "practice" },
+    ],
+  },
+  {
+    id: "pullups", name: "Pull Ups / Chin Ups", emoji: "🏋️", target: "First full pull up", color: "#4ECDC4",
+    exercises: [
+      { id: "band_pull",    name: "Band Pull-Aparts",               reps: "3 x 15" },
+      { id: "dead_hang",    name: "Dead Hang",                      reps: "3 x 20 sec" },
+      { id: "scapular",     name: "Scapular Pull",                  reps: "3 x 10" },
+      { id: "chin_neg",     name: "Chin Up Negative (8 sec down)",  reps: "3 x 3"  },
+      { id: "pull_neg",     name: "Pull Up Negative (8 sec down)",  reps: "3 x 3"  },
+      { id: "band_chin",    name: "Band Assisted Chin Up",          reps: "3 x 5"  },
+      { id: "first_chin",   name: "First Chin Up ⭐",               reps: "1+"     },
+      { id: "chin_3",       name: "Chin Up",                        reps: "3 x 3"  },
+      { id: "first_pull",   name: "First Pull Up ⭐",               reps: "1+"     },
+      { id: "pull_5",       name: "Pull Up",                        reps: "3 x 5"  },
+      { id: "pull_10",      name: "Pull Up",                        reps: "3 x 10" },
+      { id: "archer_pull",  name: "Archer Pull Up",                 reps: "3 x 4 each" },
+      { id: "mu_neg",       name: "Muscle Up Negative",             reps: "3 x 3"  },
+      { id: "muscle_up",    name: "Muscle Up ⭐",                   reps: "1+"     },
+    ],
+  },
+  {
+    id: "abs", name: "Abs & Core", emoji: "🔥", target: "Flat stomach & strong core", color: "#FFE66D",
+    exercises: [
+      { id: "dead_bug",      name: "Dead Bug",                      reps: "3 x 10 each" },
+      { id: "knee_raise",    name: "Knee Raise (Captain's Chair)",  reps: "3 x 10" },
+      { id: "glute_bridge",  name: "Glute Bridge",                  reps: "3 x 12" },
+      { id: "hollow_hold",   name: "Hollow Body Hold",              reps: "3 x 20 sec" },
+      { id: "pilates",       name: "Pilates Core (Blogilates)",     reps: "10 min" },
+      { id: "leg_raise",     name: "Lying Leg Raise",               reps: "3 x 12" },
+      { id: "hollow_rock",   name: "Hollow Body Rock",              reps: "3 x 10" },
+      { id: "hanging_knee",  name: "Hanging Knee Raise",            reps: "3 x 10" },
+      { id: "hanging_leg",   name: "Hanging Leg Raise",             reps: "3 x 8"  },
+      { id: "lsit_tuck",     name: "Tuck L-Sit (knees bent, on floor)", reps: "3 x 10 sec" },
+      { id: "lsit_one",      name: "Single Leg L-Sit",              reps: "3 x 10 sec" },
+      { id: "lsit_floor",    name: "Floor L-Sit (both legs)",       reps: "3 x 15 sec" },
+      { id: "lsit_bar",      name: "Bar L-Sit ⭐",                  reps: "3 x 20 sec" },
+      { id: "dragon_neg",    name: "Dragon Flag Negative",          reps: "3 x 5"  },
+      { id: "dragon_flag",   name: "Dragon Flag ⭐",                reps: "3 x 5"  },
+    ],
+  },
+  {
+    id: "splits", name: "Splits", emoji: "🧘", target: "Full front splits", color: "#A8E6CF",
+    exercises: [
+      { id: "hip_flexor",   name: "Hip Flexor Stretch (Lunge)",     reps: "3 x 30 sec each" },
+      { id: "hamstring",    name: "Seated Hamstring Fold",          reps: "3 x 30 sec" },
+      { id: "leg_swing",    name: "Leg Swings",                     reps: "1 min each" },
+      { id: "low_lunge",    name: "Low Lunge Hold",                 reps: "3 x 45 sec each" },
+      { id: "half_split",   name: "Half Split",                     reps: "3 x 30 sec each" },
+      { id: "split_assist", name: "Assisted Split (hands on floor)",reps: "3 x 30 sec each" },
+      { id: "split_block",  name: "Split with Block Support",       reps: "3 x 45 sec each" },
+      { id: "full_split",   name: "Full Front Split ⭐ GOAL",       reps: "hold 30 sec" },
+      { id: "middle",       name: "Middle Split Progress",          reps: "3 x 30 sec" },
+      { id: "oversplit",    name: "Oversplit (elevated front foot)", reps: "3 x 30 sec" },
+    ],
+  },
+  {
+    id: "legs", name: "Legs", emoji: "🦵", target: "Pistol, Dragon & Hawaiian Squat", color: "#C084FC",
+    exercises: [
+      { id: "squat",          name: "Bodyweight Squat",              reps: "3 x 15" },
+      { id: "split_squat",    name: "Split Squat",                   reps: "3 x 10 each" },
+      { id: "bulgarian",      name: "Bulgarian Split Squat",         reps: "3 x 8 each" },
+      { id: "shrimp_assist",  name: "Assisted Shrimp Squat",        reps: "3 x 6 each" },
+      { id: "shrimp",         name: "Shrimp Squat",                  reps: "3 x 5 each" },
+      { id: "pistol_assist",  name: "Assisted Pistol Squat",        reps: "3 x 5 each" },
+      { id: "pistol",         name: "Pistol Squat ⭐",               reps: "3 x 3 each" },
+      { id: "dragon_squat_n", name: "Dragon Squat Negative",        reps: "3 x 3 each" },
+      { id: "dragon_squat",   name: "Dragon Squat ⭐",               reps: "3 x 3 each" },
+      { id: "hawaiian_assist",name: "Assisted Hawaiian Squat",      reps: "3 x 5 each" },
+      { id: "hawaiian",       name: "Hawaiian Squat ⭐",             reps: "3 x 3 each" },
+    ],
+  },
+  {
+    id: "upsidedown", name: "Upside Down", emoji: "🙃", target: "Handstand Push Up", color: "#FB923C",
+    exercises: [
+      { id: "wall_sit",       name: "Wall Plank (face to wall)",    reps: "3 x 20 sec" },
+      { id: "tuck_head",      name: "Tuck Headstand (against wall)",reps: "3 x 20 sec" },
+      { id: "headstand_wall", name: "Headstand (wall support)",     reps: "3 x 30 sec" },
+      { id: "headstand_free", name: "Freestanding Headstand ⭐",    reps: "hold 30 sec" },
+      { id: "hs_wall_chest",  name: "Wall Handstand (chest to wall)",reps: "3 x 20 sec" },
+      { id: "hs_wall_back",   name: "Wall Handstand (back to wall)",reps: "3 x 30 sec" },
+      { id: "hs_kickup",      name: "Handstand Kick-Up Practice",   reps: "10 attempts" },
+      { id: "hs_hold",        name: "Freestanding Handstand ⭐",    reps: "hold 10 sec" },
+      { id: "hspu_negative",  name: "Handstand Push Up Negative",   reps: "3 x 3" },
+      { id: "hspu_partial",   name: "Partial Handstand Push Up",    reps: "3 x 5" },
+      { id: "hspu",           name: "Handstand Push Up ⭐",         reps: "3 x 3" },
+    ],
+  },
+];
+
+// ─── WEIGHTLIFTING GOALS ──────────────────────────────────────────────────────
+// Each exercise becomes a progression of weight steps — same format as calisthenics
+const liftGoals = [
+  {
+    id: "bicep_curl", name: "Bicep Curl", emoji: "💪", color: "#FF9F43",
+    target: "Curl 40 lbs", muscles: "Biceps",
+    tip: "Palms facing up, curl to shoulder, 3 sec lower",
+    exercises: makeWeightSteps("Bicep Curl", "3 x 10", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "hammer_curl", name: "Hammer Curl", emoji: "🔨", color: "#FF9F43",
+    target: "Curl 40 lbs", muscles: "Biceps & Brachialis",
+    tip: "Thumbs-up grip, great for arm thickness",
+    exercises: makeWeightSteps("Hammer Curl", "3 x 10", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "concentration_curl", name: "Concentration Curl", emoji: "🎯", color: "#FF9F43",
+    target: "Curl 35 lbs", muscles: "Bicep peak",
+    tip: "Elbow on inner thigh, full squeeze at top",
+    exercises: makeWeightSteps("Concentration Curl", "3 x 10 each", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "overhead_tricep", name: "Overhead Tricep Ext.", emoji: "⬆️", color: "#FD79A8",
+    target: "Lift 40 lbs", muscles: "Triceps",
+    tip: "Hold one dumbbell overhead with both hands, lower behind head slowly",
+    exercises: makeWeightSteps("Overhead Tricep Ext.", "3 x 12", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "tricep_kickback", name: "Tricep Kickback", emoji: "↩️", color: "#FD79A8",
+    target: "Kick 30 lbs", muscles: "Triceps",
+    tip: "Hinge forward, extend arm back fully, pause at top",
+    exercises: makeWeightSteps("Tricep Kickback", "3 x 12 each", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "shoulder_press", name: "Shoulder Press", emoji: "🔝", color: "#A29BFE",
+    target: "Press 50 lbs", muscles: "All deltoids",
+    tip: "Press straight overhead, don't flare elbows too wide",
+    exercises: makeWeightSteps("Shoulder Press", "3 x 10", WEIGHTS_MED, "", ""),
+  },
+  {
+    id: "lateral_raise", name: "Lateral Raise", emoji: "↔️", color: "#A29BFE",
+    target: "Raise 30 lbs", muscles: "Side deltoids",
+    tip: "Slight bend in elbow, raise to shoulder height only — no higher",
+    exercises: makeWeightSteps("Lateral Raise", "3 x 12", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "front_raise", name: "Front Raise", emoji: "⬆️", color: "#A29BFE",
+    target: "Raise 25 lbs", muscles: "Front deltoids",
+    tip: "Lift straight in front to shoulder height, control the way down",
+    exercises: makeWeightSteps("Front Raise", "3 x 12", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "rear_delt_fly", name: "Rear Delt Fly", emoji: "🦅", color: "#A29BFE",
+    target: "Fly 25 lbs", muscles: "Rear deltoids",
+    tip: "Hinge forward, arms wide like wings — great for posture & pelvic tilt",
+    exercises: makeWeightSteps("Rear Delt Fly", "3 x 12", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "bent_row", name: "Bent-Over Row", emoji: "🔙", color: "#55EFC4",
+    target: "Row 60 lbs", muscles: "Lats & rhomboids",
+    tip: "Hinge at hips, pull to lower chest, squeeze shoulder blades together",
+    exercises: makeWeightSteps("Bent-Over Row", "3 x 10", WEIGHTS_MED, "", ""),
+  },
+  {
+    id: "single_row", name: "Single Arm Row", emoji: "💪", color: "#55EFC4",
+    target: "Row 55 lbs", muscles: "Lats",
+    tip: "Brace hand on bench or knee, pull elbow to hip",
+    exercises: makeWeightSteps("Single Arm Row", "3 x 10 each", WEIGHTS_MED, "", ""),
+  },
+  {
+    id: "chest_press", name: "Chest Press", emoji: "🫀", color: "#E17055",
+    target: "Press 60 lbs", muscles: "Chest & triceps",
+    tip: "Lying on floor or bench, lower slowly, feel the chest stretch at bottom",
+    exercises: makeWeightSteps("Chest Press", "3 x 10", WEIGHTS_MED, "", ""),
+  },
+  {
+    id: "chest_fly", name: "Chest Fly", emoji: "🦅", color: "#E17055",
+    target: "Fly 40 lbs", muscles: "Chest stretch",
+    tip: "Wide arc down, slight bend in elbow — really feel the stretch",
+    exercises: makeWeightSteps("Chest Fly", "3 x 12", WEIGHTS_LIGHT, "", ""),
+  },
+  {
+    id: "bulgarian", name: "Bulgarian Split Squat", emoji: "🦵", color: "#FDCB6E",
+    target: "Hold 60 lbs", muscles: "Quads & glutes",
+    tip: "Back foot elevated, front foot forward, go slow — this WILL burn!",
+    exercises: makeWeightSteps("Bulgarian Split Squat", "3 x 8 each", WEIGHTS_HEAVY, "", ""),
+  },
+  {
+    id: "romanian_dl", name: "Romanian Deadlift", emoji: "⬇️", color: "#FDCB6E",
+    target: "Lift 70 lbs", muscles: "Hamstrings & glutes",
+    tip: "Hinge at hips, feel the hamstring stretch, keep back flat throughout",
+    exercises: makeWeightSteps("Romanian Deadlift", "3 x 10", WEIGHTS_LEGS, "", ""),
+  },
+  {
+    id: "goblet_squat", name: "Goblet Squat", emoji: "🏆", color: "#FDCB6E",
+    target: "Squat 65 lbs", muscles: "Quads & glutes",
+    tip: "Hold one dumbbell at chest, squat deep, chest stays tall",
+    exercises: makeWeightSteps("Goblet Squat", "3 x 12", WEIGHTS_LEGS, "", ""),
+  },
+  {
+    id: "sumo_squat", name: "Sumo Squat", emoji: "🦵", color: "#FDCB6E",
+    target: "Squat 60 lbs", muscles: "Inner thighs & glutes",
+    tip: "Wide stance, toes out — targets inner thighs directly, great for posture",
+    exercises: makeWeightSteps("Sumo Squat", "3 x 12", WEIGHTS_HEAVY, "", ""),
+  },
+  {
+    id: "hip_thrust", name: "Hip Thrust", emoji: "🍑", color: "#FDCB6E",
+    target: "Thrust 70 lbs", muscles: "Glutes",
+    tip: "Upper back on sofa, dumbbell on hips, drive up and SQUEEZE at top",
+    exercises: makeWeightSteps("Hip Thrust", "3 x 12", WEIGHTS_LEGS, "", ""),
+  },
+];
+
+// ─── GROUP CONFIGS for the overview screen ────────────────────────────────────
+const liftGroupMeta = [
+  { id: "arms",      label: "Arms",          emoji: "💪", color: "#FF9F43", ids: ["bicep_curl","hammer_curl","concentration_curl","overhead_tricep","tricep_kickback"] },
+  { id: "shoulders", label: "Shoulders",     emoji: "🔝", color: "#A29BFE", ids: ["shoulder_press","lateral_raise","front_raise","rear_delt_fly"] },
+  { id: "back",      label: "Back & Pull",   emoji: "🔙", color: "#55EFC4", ids: ["bent_row","single_row"] },
+  { id: "chest",     label: "Chest",         emoji: "🫀", color: "#E17055", ids: ["chest_press","chest_fly"] },
+  { id: "legs",      label: "Legs",          emoji: "🦵", color: "#FDCB6E", ids: ["bulgarian","romanian_dl","goblet_squat","sumo_squat","hip_thrust"] },
+];
+
+// ─── MUSCLE MAP ───────────────────────────────────────────────────────────────
+const levelColors = ["#252836","#7B2D2D","#C0622A","#C8A228","#2E8B57","#00CED1"];
+const levelNames  = ["Untrained","Beginner","Novice","Intermediate","Advanced","Elite"];
+
+const muscleMap = {
+  chest:      [...caliGoals[0].exercises.map(e=>`pushups-${e.id}`), ...liftGoals.filter(g=>["chest_press","chest_fly"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  biceps:     [...caliGoals[0].exercises.map(e=>`pushups-${e.id}`), ...caliGoals[1].exercises.map(e=>`pullups-${e.id}`), ...liftGoals.filter(g=>["bicep_curl","hammer_curl","concentration_curl"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  triceps:    [...caliGoals[0].exercises.map(e=>`pushups-${e.id}`), ...liftGoals.filter(g=>["overhead_tricep","tricep_kickback"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  abs:        caliGoals[2].exercises.map(e=>`abs-${e.id}`),
+  obliques:   caliGoals[2].exercises.map(e=>`abs-${e.id}`),
+  lats:       [...caliGoals[1].exercises.map(e=>`pullups-${e.id}`), ...liftGoals.filter(g=>["bent_row","single_row"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  traps:      [...caliGoals[1].exercises.map(e=>`pullups-${e.id}`), ...liftGoals.filter(g=>["bent_row"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  glutes:     [...caliGoals[2].exercises.map(e=>`abs-${e.id}`), ...caliGoals[3].exercises.map(e=>`splits-${e.id}`), ...caliGoals[4].exercises.map(e=>`legs-${e.id}`), ...liftGoals.filter(g=>["bulgarian","romanian_dl","goblet_squat","sumo_squat","hip_thrust"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  quads:      [...caliGoals[3].exercises.map(e=>`splits-${e.id}`), ...caliGoals[4].exercises.map(e=>`legs-${e.id}`), ...liftGoals.filter(g=>["bulgarian","goblet_squat","sumo_squat"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  hamstrings: [...caliGoals[3].exercises.map(e=>`splits-${e.id}`), ...liftGoals.filter(g=>["romanian_dl"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+  calves:     [...caliGoals[3].exercises.map(e=>`splits-${e.id}`), ...caliGoals[4].exercises.map(e=>`legs-${e.id}`)],
+  shoulders:  [...caliGoals[0].exercises.map(e=>`pushups-${e.id}`), ...caliGoals[1].exercises.map(e=>`pullups-${e.id}`), ...caliGoals[5].exercises.map(e=>`upsidedown-${e.id}`), ...liftGoals.filter(g=>["shoulder_press","lateral_raise","front_raise","rear_delt_fly"].includes(g.id)).flatMap(g=>g.exercises.map(e=>`${g.id}-${e.id}`))],
+};
+
+function getMuscleLevel(muscleId, completed) {
+  const keys = muscleMap[muscleId] || [];
+  if (!keys.length) return 0;
+  const done = keys.filter(k => completed[k]).length;
+  const pct = done / keys.length;
+  if (pct === 0) return 0;
+  if (pct < 0.15) return 1;
+  if (pct < 0.35) return 2;
+  if (pct < 0.60) return 3;
+  if (pct < 0.85) return 4;
+  return 5;
+}
+
+// ─── SVG FIGURES ─────────────────────────────────────────────────────────────
+const skin = "#D4956A", skinShade = "#B87850";
+function col(id, completed) { return levelColors[getMuscleLevel(id, completed)]; }
+
+function FrontFigure({ completed }) {
+  const c = id => col(id, completed);
+  return (
+    <svg viewBox="0 0 160 400" style={{ width:"100%", maxWidth:140 }}>
+      <ellipse cx="80" cy="28" rx="22" ry="26" fill={skin}/>
+      <ellipse cx="80" cy="32" rx="10" ry="7" fill={skinShade} opacity="0.3"/>
+      <ellipse cx="58" cy="30" rx="4" ry="6" fill={skinShade}/>
+      <ellipse cx="102" cy="30" rx="4" ry="6" fill={skinShade}/>
+      <rect x="72" y="52" width="16" height="14" rx="5" fill={skinShade}/>
+      <path d="M72 54 Q58 58 54 68 Q62 65 72 63 Z" fill={c("traps")}/>
+      <path d="M88 54 Q102 58 106 68 Q98 65 88 63 Z" fill={c("traps")}/>
+      <ellipse cx="48" cy="76" rx="14" ry="16" fill={c("shoulders")}/>
+      <ellipse cx="112" cy="76" rx="14" ry="16" fill={c("shoulders")}/>
+      <path d="M62 66 Q54 70 54 82 Q54 96 64 101 Q72 104 80 103 Q88 104 96 101 Q106 96 106 82 Q106 70 98 66 Q90 63 80 63 Q70 63 62 66 Z" fill={c("chest")}/>
+      <line x1="80" y1="63" x2="80" y2="103" stroke={skinShade} strokeWidth="1" opacity="0.4"/>
+      <rect x="66" y="103" width="12" height="10" rx="3" fill={c("abs")}/>
+      <rect x="66" y="115" width="12" height="10" rx="3" fill={c("abs")}/>
+      <rect x="66" y="127" width="12" height="10" rx="3" fill={c("abs")}/>
+      <rect x="82" y="103" width="12" height="10" rx="3" fill={c("abs")}/>
+      <rect x="82" y="115" width="12" height="10" rx="3" fill={c("abs")}/>
+      <rect x="82" y="127" width="12" height="10" rx="3" fill={c("abs")}/>
+      <line x1="80" y1="102" x2="80" y2="140" stroke={skinShade} strokeWidth="1" opacity="0.4"/>
+      <path d="M64 104 Q56 112 56 128 Q60 120 66 114 Z" fill={c("obliques")}/>
+      <path d="M96 104 Q104 112 104 128 Q100 120 94 114 Z" fill={c("obliques")}/>
+      <path d="M62 138 Q56 142 56 150 Q60 156 80 158 Q100 156 104 150 Q104 142 98 138 Q90 141 80 141 Q70 141 62 138 Z" fill={skin}/>
+      <ellipse cx="40" cy="100" rx="10" ry="18" fill={c("biceps")}/>
+      <ellipse cx="120" cy="100" rx="10" ry="18" fill={c("biceps")}/>
+      <ellipse cx="36" cy="132" rx="8" ry="16" fill={skin}/>
+      <ellipse cx="124" cy="132" rx="8" ry="16" fill={skin}/>
+      <ellipse cx="34" cy="152" rx="7" ry="8" fill={skinShade}/>
+      <ellipse cx="126" cy="152" rx="7" ry="8" fill={skinShade}/>
+      <path d="M62 158 Q52 164 50 190 Q50 216 56 230 Q62 240 70 238 Q78 236 80 218 Q80 194 78 168 Q76 158 62 158 Z" fill={c("quads")}/>
+      <path d="M98 158 Q108 164 110 190 Q110 216 104 230 Q98 240 90 238 Q82 236 80 218 Q80 194 82 168 Q84 158 98 158 Z" fill={c("quads")}/>
+      <ellipse cx="68" cy="242" rx="9" ry="7" fill={skinShade}/>
+      <ellipse cx="92" cy="242" rx="9" ry="7" fill={skinShade}/>
+      <ellipse cx="66" cy="270" rx="10" ry="20" fill={c("calves")}/>
+      <ellipse cx="94" cy="270" rx="10" ry="20" fill={c("calves")}/>
+      <ellipse cx="64" cy="300" rx="9" ry="5" fill={skin}/>
+      <ellipse cx="96" cy="300" rx="9" ry="5" fill={skin}/>
+    </svg>
+  );
+}
+
+function BackFigure({ completed }) {
+  const c = id => col(id, completed);
+  return (
+    <svg viewBox="0 0 160 400" style={{ width:"100%", maxWidth:140 }}>
+      <ellipse cx="80" cy="28" rx="22" ry="26" fill={skinShade}/>
+      <ellipse cx="58" cy="30" rx="4" ry="6" fill={skinShade}/>
+      <ellipse cx="102" cy="30" rx="4" ry="6" fill={skinShade}/>
+      <rect x="72" y="52" width="16" height="14" rx="5" fill={skinShade}/>
+      <path d="M72 54 Q56 58 52 72 Q62 68 80 66 Q98 68 108 72 Q104 58 88 54 Z" fill={c("traps")}/>
+      <ellipse cx="48" cy="78" rx="14" ry="15" fill={c("shoulders")}/>
+      <ellipse cx="112" cy="78" rx="14" ry="15" fill={c("shoulders")}/>
+      <path d="M62 74 Q50 82 50 106 Q52 124 62 132 Q70 138 78 136 Q82 130 82 116 Q82 94 78 76 Z" fill={c("lats")}/>
+      <path d="M98 74 Q110 82 110 106 Q108 124 98 132 Q90 138 82 136 Q78 130 78 116 Q78 94 82 76 Z" fill={c("lats")}/>
+      <line x1="80" y1="66" x2="80" y2="150" stroke={skinShade} strokeWidth="1.2" opacity="0.5"/>
+      <path d="M66 132 Q56 136 56 148 Q58 158 80 160 Q102 158 104 148 Q104 136 94 132 Q86 134 80 134 Q74 134 66 132 Z" fill={c("lats")}/>
+      <ellipse cx="40" cy="102" rx="10" ry="18" fill={c("triceps")}/>
+      <ellipse cx="120" cy="102" rx="10" ry="18" fill={c("triceps")}/>
+      <ellipse cx="36" cy="134" rx="8" ry="16" fill={skin}/>
+      <ellipse cx="124" cy="134" rx="8" ry="16" fill={skin}/>
+      <ellipse cx="34" cy="154" rx="7" ry="8" fill={skinShade}/>
+      <ellipse cx="126" cy="154" rx="7" ry="8" fill={skinShade}/>
+      <path d="M58 160 Q50 166 50 186 Q50 206 60 214 Q70 220 80 218 Q90 220 100 214 Q110 206 110 186 Q110 166 102 160 Q92 164 80 164 Q68 164 58 160 Z" fill={c("glutes")}/>
+      <line x1="80" y1="164" x2="80" y2="218" stroke={skinShade} strokeWidth="1" opacity="0.3"/>
+      <path d="M58 216 Q48 224 48 252 Q48 278 56 292 Q64 302 72 298 Q80 294 80 274 Q80 248 76 224 Q72 216 58 216 Z" fill={c("hamstrings")}/>
+      <path d="M102 216 Q112 224 112 252 Q112 278 104 292 Q96 302 88 298 Q80 294 80 274 Q80 248 84 224 Q88 216 102 216 Z" fill={c("hamstrings")}/>
+      <ellipse cx="68" cy="302" rx="9" ry="7" fill={skinShade}/>
+      <ellipse cx="92" cy="302" rx="9" ry="7" fill={skinShade}/>
+      <ellipse cx="66" cy="328" rx="11" ry="20" fill={c("calves")}/>
+      <ellipse cx="94" cy="328" rx="11" ry="20" fill={c("calves")}/>
+      <ellipse cx="64" cy="358" rx="9" ry="5" fill={skin}/>
+      <ellipse cx="96" cy="358" rx="9" ry="5" fill={skin}/>
+    </svg>
+  );
+}
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+const STORAGE_KEY = "tracker-v3";
+
+// ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
+function ExerciseList({ goal, completed, onToggle, onBack }) {
+  const done  = goal.exercises.filter(e => completed[`${goal.id}-${e.id}`]).length;
+  const total = goal.exercises.length;
+  const pct   = Math.round((done / total) * 100);
+
+  return (
+    <div>
+      <div style={{ padding:"14px 18px 0" }}>
+        <button onClick={onBack} style={{ background:"none", border:"none", color:"#555", cursor:"pointer", fontSize:12, padding:0, marginBottom:14, fontFamily:"Georgia,serif" }}>← Back</button>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:3 }}>
+          <span style={{ fontSize:22 }}>{goal.emoji}</span>
+          <h2 style={{ margin:0, fontSize:18, fontWeight:"normal", fontFamily:"Georgia,serif" }}>{goal.name}</h2>
+        </div>
+        {goal.tip && <div style={{ fontSize:11, color:"#555", fontStyle:"italic", marginBottom:8, lineHeight:1.6 }}>💡 {goal.tip}</div>}
+        <div style={{ fontSize:11, color:"#444", marginBottom:13 }}>🎯 {goal.target}</div>
+        <div style={{ marginBottom:18 }}>
+          <div style={{ background:"#1e2028", borderRadius:4, height:4 }}>
+            <div style={{ height:"100%", width:`${pct}%`, background:goal.color, borderRadius:4, transition:"width 0.4s" }}/>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+            <span style={{ fontSize:10, color:"#333" }}>{pct}% complete</span>
+            <span style={{ fontSize:10, color:goal.color, fontFamily:"monospace" }}>{done}/{total}</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ padding:"0 18px 40px", display:"flex", flexDirection:"column", gap:7 }}>
+        {goal.exercises.map((ex, idx) => {
+          const key     = `${goal.id}-${ex.id}`;
+          const isDone  = !!completed[key];
+          const isGoal  = ex.name.includes("⭐");
+          const prevDone = idx === 0 || !!completed[`${goal.id}-${goal.exercises[idx-1].id}`];
+          const isCurrent = !isDone && prevDone;
+
+          return (
+            <button key={ex.id} onClick={() => onToggle(goal.id, ex.id)}
+              style={{ background: isDone?"#121a12": isCurrent?"#12121a":"#13141a", border: isDone?`1px solid ${goal.color}22`: isCurrent?"1px solid #5555bb":"1px solid #1e2028", borderLeft: isGoal?`4px solid ${goal.color}`: isDone?`4px solid ${goal.color}55`: isCurrent?"4px solid #5555bb":"4px solid #222", borderRadius:9, padding:"12px 14px", cursor:"pointer", textAlign:"left", color: isDone?"#555":"#f0ece4", display:"flex", alignItems:"center", gap:12, transition:"all 0.2s", fontFamily:"Georgia,serif" }}>
+              <div style={{ width:20, height:20, borderRadius:"50%", border: isDone?"none":`2px solid ${isCurrent?"#5555bb":"#2a2a2a"}`, background: isDone?goal.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:10, color:"#0c0c0c", fontWeight:"bold" }}>
+                {isDone && "✓"}
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                  <span style={{ fontSize:13, fontWeight: isGoal?"bold":"normal", textDecoration: isDone?"line-through":"none", color: isDone?"#444": isGoal?goal.color:"#f0ece4" }}>{ex.name}</span>
+                  {isCurrent && <span style={{ fontSize:9, background:"#5555bb", color:"white", borderRadius:4, padding:"1px 5px", letterSpacing:0.5 }}>CURRENT</span>}
+                </div>
+                <div style={{ fontSize:11, color:"#444", fontFamily:"monospace" }}>{ex.reps}</div>
+              </div>
+              <div style={{ fontSize:9, color:"#2a2a2a", fontFamily:"monospace" }}>{String(idx+1).padStart(2,"0")}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const [completed,      setCompleted]      = useState({});
+  const [activeGoal,     setActiveGoal]     = useState(null);
+  const [activeLift,     setActiveLift]     = useState(null);
+  const [activePage,     setActivePage]     = useState("cali");
+  const [muscleView,     setMuscleView]     = useState("front");
+  const [saveStatus,     setSaveStatus]     = useState("idle");
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setCompleted(JSON.parse(raw));
+    } catch(e) {}
+  }, []);
+
+  useEffect(() => {
+    if (!Object.keys(completed).length) return;
+    setSaveStatus("saving");
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
+      setSaveStatus("saved");
+      const t = setTimeout(() => setSaveStatus("idle"), 1500);
+      return () => clearTimeout(t);
+    } catch(e) { setSaveStatus("error"); }
+  }, [completed]);
+
+  const toggle = (goalId, exId) => {
+    const key = `${goalId}-${exId}`;
+    setCompleted(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const getProgress = (goal) => {
+    const done = goal.exercises.filter(e => completed[`${goal.id}-${e.id}`]).length;
+    return { done, total: goal.exercises.length, pct: Math.round((done/goal.exercises.length)*100) };
+  };
+
+  const activeGoalData = caliGoals.find(g => g.id === activeGoal);
+  const activeLiftData = liftGoals.find(g => g.id === activeLift);
+
+  const frontMuscles = [
+    { id:"shoulders", label:"Shoulders" }, { id:"chest", label:"Chest" },
+    { id:"biceps",    label:"Biceps"    }, { id:"abs",   label:"Abs"   },
+    { id:"obliques",  label:"Obliques"  }, { id:"quads", label:"Quads" },
+    { id:"calves",    label:"Calves"    },
+  ];
+  const backMuscles = [
+    { id:"traps",      label:"Traps"      }, { id:"shoulders", label:"Rear Delts" },
+    { id:"lats",       label:"Lats"       }, { id:"triceps",   label:"Triceps"    },
+    { id:"glutes",     label:"Glutes"     }, { id:"hamstrings",label:"Hamstrings" },
+    { id:"calves",     label:"Calves"     },
+  ];
+  const allMuscles = [
+    { id:"chest", label:"Chest" }, { id:"shoulders", label:"Shoulders" },
+    { id:"biceps", label:"Biceps" }, { id:"triceps", label:"Triceps" },
+    { id:"lats", label:"Lats & Back" }, { id:"traps", label:"Trapezius" },
+    { id:"abs", label:"Abs" }, { id:"obliques", label:"Obliques" },
+    { id:"glutes", label:"Glutes" }, { id:"quads", label:"Quads" },
+    { id:"hamstrings", label:"Hamstrings" }, { id:"calves", label:"Calves" },
+  ];
+
+  const tabs = [
+    { id:"cali",   label:"🤸 Skills"  },
+    { id:"lift",   label:"🏋️ Weights" },
+    { id:"muscle", label:"🫀 Muscles" },
+  ];
+
+  const sf = { fontFamily:"Georgia,serif" };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#111318", color:"#f0ece4", ...sf }}>
+
+      {/* Header */}
+      <div style={{ padding:"22px 20px 10px", borderBottom:"1px solid #1e2028", position:"sticky", top:0, background:"#111318", zIndex:20, display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
+        <div>
+          <div style={{ fontSize:10, letterSpacing:4, color:"#444", textTransform:"uppercase", marginBottom:2 }}>Your Journey</div>
+          <h1 style={{ margin:0, fontSize:19, fontWeight:"normal" }}>Fitness Tracker</h1>
+        </div>
+        {saveStatus !== "idle" && (
+          <span style={{ fontSize:10, color: saveStatus==="error"?"#ff6b6b":"#4ECDC4", letterSpacing:1 }}>
+            {saveStatus==="saved"?"✓ Saved": saveStatus==="saving"?"Saving...":"⚠ Error"}
+          </span>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", borderBottom:"1px solid #1e2028", position:"sticky", top:60, background:"#111318", zIndex:19 }}>
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => { setActivePage(tab.id); setActiveGoal(null); setActiveLift(null); }}
+            style={{ flex:1, padding:"10px 4px", background:"none", border:"none", borderBottom: activePage===tab.id?"2px solid #FF6B6B":"2px solid transparent", color: activePage===tab.id?"#f0ece4":"#444", cursor:"pointer", fontSize:11, transition:"all 0.2s", ...sf }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CALISTHENICS LIST ── */}
+      {activePage==="cali" && !activeGoal && (
+        <div style={{ padding:"18px" }}>
+          <p style={{ color:"#555", fontSize:12, marginBottom:20, lineHeight:1.8 }}>
+            Train your <strong style={{ color:"#aaa" }}>current exercise only</strong> each session. Check it off when comfortable, then level up. ✨
+          </p>
+          <div style={{ display:"flex", flexDirection:"column", gap:11 }}>
+            {caliGoals.map(goal => {
+              const { done, total, pct } = getProgress(goal);
+              const currentEx = goal.exercises.find(e => !completed[`${goal.id}-${e.id}`]);
+              return (
+                <button key={goal.id} onClick={() => setActiveGoal(goal.id)}
+                  style={{ background:"#16181f", border:"1px solid #1e2028", borderLeft:`4px solid ${goal.color}`, borderRadius:12, padding:"14px 15px", cursor:"pointer", textAlign:"left", color:"#f0ece4", ...sf }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                    <div style={{ fontSize:15 }}><span style={{ marginRight:7 }}>{goal.emoji}</span>{goal.name}</div>
+                    <span style={{ fontSize:11, color:goal.color, fontFamily:"monospace" }}>{done}/{total}</span>
+                  </div>
+                  {currentEx
+                    ? <div style={{ fontSize:11, color:"#6666cc", marginBottom:8 }}>Now: {currentEx.name} — {currentEx.reps}</div>
+                    : <div style={{ fontSize:11, color:"#4ECDC4", marginBottom:8 }}>🎉 Complete!</div>}
+                  <div style={{ background:"#1e2028", borderRadius:3, height:3 }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:goal.color, borderRadius:3 }}/>
+                  </div>
+                  <div style={{ fontSize:10, color:"#333", marginTop:4 }}>{pct}% complete</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activePage==="cali" && activeGoal && activeGoalData && (
+        <ExerciseList goal={activeGoalData} completed={completed} onToggle={toggle} onBack={() => setActiveGoal(null)} />
+      )}
+
+      {/* ── WEIGHTLIFTING LIST ── */}
+      {activePage==="lift" && !activeLift && (
+        <div style={{ padding:"18px" }}>
+          <p style={{ color:"#555", fontSize:12, marginBottom:16, lineHeight:1.8 }}>
+            Same as calisthenics — check off your current weight when it feels easy, then move up. 💪
+          </p>
+          {liftGroupMeta.map(group => {
+            const groupGoals = liftGoals.filter(g => group.ids.includes(g.id));
+            const totalEx    = groupGoals.reduce((a, g) => a + g.exercises.length, 0);
+            const doneEx     = groupGoals.reduce((a, g) => a + g.exercises.filter(e => completed[`${g.id}-${e.id}`]).length, 0);
+
+            return (
+              <div key={group.id} style={{ marginBottom:20 }}>
+                <div style={{ fontSize:10, letterSpacing:3, color:group.color, textTransform:"uppercase", marginBottom:10, display:"flex", justifyContent:"space-between" }}>
+                  <span>{group.emoji} {group.label}</span>
+                  <span style={{ fontFamily:"monospace", color:"#444" }}>{doneEx}/{totalEx}</span>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {groupGoals.map(goal => {
+                    const { done, total, pct } = getProgress(goal);
+                    const currentEx = goal.exercises.find(e => !completed[`${goal.id}-${e.id}`]);
+                    return (
+                      <button key={goal.id} onClick={() => setActiveLift(goal.id)}
+                        style={{ background:"#16181f", border:"1px solid #1e2028", borderLeft:`4px solid ${goal.color}`, borderRadius:10, padding:"13px 15px", cursor:"pointer", textAlign:"left", color:"#f0ece4", ...sf }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                          <div style={{ fontSize:14 }}><span style={{ marginRight:6 }}>{goal.emoji}</span>{goal.name}</div>
+                          <span style={{ fontSize:10, color:goal.color, fontFamily:"monospace" }}>{done}/{total}</span>
+                        </div>
+                        {currentEx
+                          ? <div style={{ fontSize:11, color:"#6666cc", marginBottom:7 }}>Now: {currentEx.name} — {currentEx.reps}</div>
+                          : <div style={{ fontSize:11, color:"#4ECDC4", marginBottom:7 }}>🎉 Max reached!</div>}
+                        <div style={{ background:"#1e2028", borderRadius:3, height:3 }}>
+                          <div style={{ height:"100%", width:`${pct}%`, background:goal.color, borderRadius:3 }}/>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {activePage==="lift" && activeLift && activeLiftData && (
+        <ExerciseList
+          goal={activeLiftData}
+          completed={completed}
+          onToggle={toggle}
+          onBack={() => setActiveLift(null)}
+        />
+      )}
+
+      {/* ── MUSCLE MAP ── */}
+      {activePage==="muscle" && (
+        <div style={{ padding:"18px" }}>
+          <p style={{ color:"#555", fontSize:12, marginBottom:16, lineHeight:1.8 }}>Both calisthenics and lifting progress feed into your muscle map. 💪</p>
+          <div style={{ display:"flex", gap:0, marginBottom:20, background:"#16181f", borderRadius:10, overflow:"hidden", border:"1px solid #1e2028" }}>
+            {["front","back"].map(v => (
+              <button key={v} onClick={() => setMuscleView(v)}
+                style={{ flex:1, padding:"9px", background: muscleView===v?"#252836":"transparent", border:"none", color: muscleView===v?"#f0ece4":"#444", cursor:"pointer", fontSize:12, textTransform:"capitalize", ...sf }}>
+                {v} View
+              </button>
+            ))}
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
+            <div style={{ width:130, flexShrink:0 }}>
+              {muscleView==="front" ? <FrontFigure completed={completed}/> : <BackFigure completed={completed}/>}
+            </div>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+              {(muscleView==="front"?frontMuscles:backMuscles).map(m => {
+                const level = getMuscleLevel(m.id, completed);
+                return (
+                  <div key={m.id+m.label} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ width:11, height:11, borderRadius:3, background:levelColors[level], flexShrink:0, border:"1px solid #2a2a30" }}/>
+                    <div>
+                      <div style={{ fontSize:11, color: level>0?"#ddd":"#555" }}>{m.label}</div>
+                      {level>0 && <div style={{ fontSize:9, color:levelColors[level] }}>{levelNames[level]}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ background:"#16181f", borderRadius:10, padding:"11px 13px", border:"1px solid #1e2028", marginBottom:18 }}>
+            <div style={{ fontSize:10, letterSpacing:3, color:"#333", textTransform:"uppercase", marginBottom:8 }}>Level Scale</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+              {levelNames.map((l,i) => (
+                <div key={l} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                  <div style={{ width:11, height:11, borderRadius:3, background:levelColors[i], border:"1px solid #2a2a30" }}/>
+                  <span style={{ fontSize:10, color:"#555" }}>{l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontSize:10, letterSpacing:3, color:"#333", textTransform:"uppercase", marginBottom:10 }}>All Muscles</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {allMuscles.map(m => {
+              const level = getMuscleLevel(m.id, completed);
+              const pct   = Math.round((level/(levelNames.length-1))*100);
+              return (
+                <div key={m.id} style={{ background:"#16181f", borderRadius:8, padding:"10px 13px", border:"1px solid #1e2028" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                    <span style={{ fontSize:12 }}>{m.label}</span>
+                    <span style={{ fontSize:10, color: level>0?levelColors[level]:"#333", textTransform:"capitalize", letterSpacing:1 }}>{levelNames[level]}</span>
+                  </div>
+                  <div style={{ background:"#1e2028", borderRadius:3, height:3 }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:levelColors[level], borderRadius:3, transition:"width 0.5s" }}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
